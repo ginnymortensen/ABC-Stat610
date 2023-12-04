@@ -38,7 +38,7 @@ prob_matrix <- function(qc, qh, n) {
     }
   }
   
-  return(W[, -1])
+  return(W)
   
 }
 
@@ -50,6 +50,7 @@ sample_from_matrix_distribution <- function(prob_matrix, obs_matrix) {
   #' @param obs_matrix observed data (nxn)
   #' @return matrix of sampled data
 
+  prob_matrix <- prob_matrix[, -1]  # 1st column not relevant
   sampled_data <- matrix(0, nrow = nrow(obs_matrix), ncol = ncol(obs_matrix))
   
   for (c in 1:ncol(sampled_data)) {
@@ -126,4 +127,7 @@ results1 <- abc_sim(table3, prior, tolerance, n_steps)
 results2 <- abc_sim(table4, prior, tolerance, n_steps)
 plot_results(results1, results2,
              "ABC Posterior Distributions for Table S3", "1975-76", "1978-79")
+
+W <- prob_matrix(0.6, 0.4, 5)
+print(W)
 
