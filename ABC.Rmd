@@ -99,7 +99,8 @@ sample_from_matrix_distribution <- function(prob_matrix, obs_matrix) {
 
 ```{r}
 # Sample from the matrix distribution
-sampled_data <- sample_from_matrix_distribution(W, obs_matrix)
+W <- prob_matrix(0.8, 0.2, 5)
+sampled_data <- sample_from_matrix_distribution(W, obs_matrix1)
 print(sampled_data)
 ```
 
@@ -162,13 +163,13 @@ abc_sim_both <- function(obs_data1, obs_data2, prior, tolerance, n_steps) {
 
 
 ```{r}
-abc_sim(obs_matrix4, prior, 30, 10000)
+abc_sim(obs_matrix4, prior, 10, 100000)
 
 ```
 
 
 ```{r}
-abc_sim_both(obs_matrix1, obs_matrix2, prior, 30, 10000)
+abc_sim_both(obs_matrix1, obs_matrix2, prior, 20, 100000)
 ```
 
 
@@ -205,7 +206,7 @@ abc_smc <- function(obs_data, prior, tolerance, n_steps) {
 
 
 ```{r}
-abc_smc(obs_matrix2, prior, c(80, 50, 30, 20, 15, 13, 12), 1000)
+abc_smc(obs_matrix2, prior, c(80, 50, 30, 20, 15, 13, 12), 10000)
 ```
 ```{r}
 abc_smc(obs_matrix4, prior, c(40, 20, 15, 10, 8, 6, 5), 1000)
@@ -259,12 +260,98 @@ abc_smc_both <- function(obs_data1, obs_data2, prior, tolerance, n_steps) {
 
 
 ```{r}
-abc_smc_both(obs_matrix1, obs_matrix2, prior, c(80, 50, 30, 20, 15, 13, 12), 1000)
+abc_smc_both(obs_matrix1, obs_matrix2, prior, c(100, 80, 50, 30, 20, 15, 13, 12), 100000)
 ```
 
 ```{r}
-abc_smc_both(obs_matrix3, obs_matrix4, prior, c(40, 20, 15, 10, 8, 6, 5), 10000)
+abc_smc_both(obs_matrix3, obs_matrix4, prior, c(40, 20, 15, 10, 8, 6, 5), 1000)
+```
+
+```{r}
+kernel <- function(population, particle) {
+  max_val <- max(population)
+  min_val <- min(population)
+  sigma <- 0.5*(max_val - min_val)
+  return(particle + runif(1, -sigma, sigma))
+}
 ```
 
 
+```{r}
+prior_pdf <- function(x) {
+  return(x >= 0 && x <= 1)
+}
+```
+
+```{r}
+prior_pdf(3)
+```
+
+
+```{r}
+get_param_sample <- function(population, prior_pdf) {
+  while (TRUE) {
+    particle <- sample(population, 1)
+    perturbed <- kernel(population, particle)
+    if (prior_pdf(perturbed)) {
+      return(perturbed)
+    }
+  }
+}
+```
+
+
+```{r}
+abc_smc_perturbation <- function(obs_data1, obs_data2, prior, tolerance, n_steps) {
+  n1 = ncol(obs_data1)
+  n2 = ncol(obs_data2)
+  for (i in 1:(length(tolerance)-1)) {
+    accepted_qc1 <- c()
+    accepted_qh1 <- c()
+    accepted_qc2 <- c()
+    accepted_qh2 <- c()
+    acc_count <- 0
+    while (acc_count < n_steps) {
+      if (i == 1) {
+        qc1 <- prior()
+        qh1 <- prior()
+        qc2 <- prior()
+        qh2 <- prior()
+      }
+      else {
+        qc1 <- get_param_sample(qc1_population, prior_pdf)
+        qh1 <- get_param_sample(qh1_population, prior_pdf)
+        qc2 <- get_param_sample(qc2_population, prior_pdf)
+        qh2 <- get_param_sample(qh2_population, prior_pdf)
+      }
+      W1 <- prob_matrix(qc1, qh1, n1)
+      W2 <- prob_matrix(qc2, qh2, n2)
+      sim_data1 <- sample_from_matrix_distribution(W1, obs_data1)
+      sim_data2 <- sample_from_matrix_distribution(W2, obs_data2)
+      if ((norm(obs_data1 - sim_data1, "F") + norm(obs_data2 - sim_data2, "F"))/2 <= tolerance[i]) {
+        accepted_qc1 <- append(accepted_qc1, qc1)
+        accepted_qh1 <- append(accepted_qh1, qc1)
+        accepted_qc2 <- append(accepted_qc2, qc2)
+        accepted_qh2 <- append(accepted_qh2, qc2)
+        acc_count <- acc_count + 1
+      }
+    }
+    qc1_population <- accepted_qc1
+    qh1_population <- accepted_qh1
+    qc2_population <- accepted_qc2
+    qh2_population <- accepted_qh2
+  }
+  plot(accepted_qh1, accepted_qc1, col="red", xlim=c(0,1), ylim=c(0,1))
+  plot(accepted_qh2, accepted_qc2, col="blue", xlim=c(0,1), ylim=c(0,1))
+}
+```
+
+
+```{r}
+abc_smc_perturbation(obs_matrix1, obs_matrix2, prior, c(100, 80, 50, 30, 20, 15, 13, 12), 1000)
+```
+
+```{r}
+abc_smc_perturbation(obs_matrix3, obs_matrix4, prior, c(40, 20, 15, 10, 8, 6, 5), 1000)
+```
 
